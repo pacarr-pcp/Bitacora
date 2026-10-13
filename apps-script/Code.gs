@@ -17,14 +17,15 @@
 
 const HOJA_USUARIOS = 'Usuarios';
 const HOJA_REGISTROS = 'Registros';
-const ETIQUETAS = ['Asistencia', 'Importante', 'Anonimo', 'Seguridad', 'Terreno'];
+const ETIQUETA_DEFECTO = 'Aviso';
+const ETIQUETAS = ['Aviso', 'Asistencia', 'Importante', 'Seguridad', 'Terreno'];
 const ETIQUETA_ALERTA = 'Importante';
 const VENTANA_BORRADO_MS = 60 * 60 * 1000; // 1 hora
 const DIAS_HISTORIAL = 30;
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Bitácora')
+    .setTitle('Log SIMET')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -97,7 +98,7 @@ function enviarAlerta_(registro) {
 function registrarLog(data) {
   const codigo = String(data.codigo || '').trim();
   const nombreInvitado = String(data.nombreInvitado || '').trim();
-  const etiqueta = data.etiqueta;
+  const etiqueta = data.etiqueta || ETIQUETA_DEFECTO;
   const descripcion = String(data.descripcion || '').trim();
 
   if (ETIQUETAS.indexOf(etiqueta) === -1) throw new Error('Etiqueta inválida.');
@@ -166,7 +167,7 @@ function listarRegistros(etiquetaFiltro) {
 }
 
 function borrarRegistro(id, codigo) {
-  if (!codigo) throw new Error('Necesitás tu código para borrar un registro.');
+  if (!codigo) throw new Error('Necesitas tu código para borrar un registro.');
   const hoja = getSheet_(HOJA_REGISTROS);
   const datos = hoja.getDataRange().getValues();
 
@@ -174,11 +175,11 @@ function borrarRegistro(id, codigo) {
     if (datos[i][0] !== id) continue;
 
     const [, timestamp, codigoFila] = datos[i];
-    if (String(codigoFila || '').trim() !== String(codigo).trim()) {
+    if (!codigoFila || String(codigoFila).trim().toLowerCase() !== String(codigo).trim().toLowerCase()) {
       throw new Error('Ese registro no te pertenece.');
     }
     if (Date.now() - new Date(timestamp).getTime() > VENTANA_BORRADO_MS) {
-      throw new Error('Ya pasó más de 1 hora desde que se cargó, no se puede borrar.');
+      throw new Error('Ya pasó más de 1 hora desde que se cargó, no se puede descartar.');
     }
     hoja.deleteRow(i + 1);
     return { ok: true };

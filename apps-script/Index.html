@@ -111,22 +111,6 @@
     .estado-identidad.ok { background: #dcfce7; color: #166534; }
     .estado-identidad.error { background: #fee2e2; color: #991b1b; }
 
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .chip {
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--borde);
-      background: white;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .chip.activo { color: white; border-color: transparent; }
-    .chip[data-etiqueta="Asistencia"].activo { background: var(--azul); }
-    .chip[data-etiqueta="Importante"].activo { background: var(--rojo); }
-    .chip[data-etiqueta="Anonimo"].activo { background: var(--gris); }
-    .chip[data-etiqueta="Seguridad"].activo { background: var(--naranja); }
-    .chip[data-etiqueta="Terreno"].activo { background: var(--verde); }
-
     .badge {
       display: inline-block;
       padding: 3px 9px;
@@ -138,19 +122,22 @@
     .badge.Asistencia { background: var(--azul); }
     .badge.Importante { background: var(--rojo); }
     .badge.Anonimo { background: var(--gris); }
+    .badge.Aviso { background: var(--gris); }
     .badge.Seguridad { background: var(--naranja); }
     .badge.Terreno { background: var(--verde); }
 
     .registro-cabecera { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .registro-meta { font-size: 12px; color: var(--gris); margin-top: 4px; }
     .registro-desc { font-size: 14px; margin-top: 6px; white-space: pre-wrap; }
+    .card.clic { cursor: pointer; }
+    .detalle-borrar { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borde); font-size: 13px; color: var(--gris); }
     .btn-borrar {
       background: none;
       border: none;
       color: var(--rojo);
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
-      margin-top: 8px;
       padding: 0;
     }
 
@@ -164,7 +151,7 @@
 </head>
 <body>
 
-  <header>📋 Bitácora</header>
+  <header>📋 Log SIMET</header>
 
   <div class="tabs">
     <button class="tab-btn activo" data-tab="registrar">Registrar</button>
@@ -197,7 +184,7 @@
 
     <div class="card" id="card-formulario" style="opacity:0.5; pointer-events:none;">
       <label>Etiqueta</label>
-      <div class="chips" id="chips-etiquetas"></div>
+      <select id="select-etiqueta"></select>
 
       <label for="input-descripcion">Descripción</label>
       <textarea id="input-descripcion" placeholder="Ingresa breve comentario"></textarea>
@@ -229,7 +216,7 @@
 
   <script>
     let ETIQUETAS = [];
-    let etiquetaSeleccionada = null;
+    const ETIQUETA_DEFECTO = 'Aviso';
     let modoInvitado = false;
     let identidad = { codigo: '', nombre: '' };
 
@@ -257,21 +244,14 @@
     }).obtenerEtiquetas();
 
     function renderChips() {
-      const cont = document.getElementById('chips-etiquetas');
-      cont.innerHTML = '';
+      const sel = document.getElementById('select-etiqueta');
+      sel.innerHTML = '';
       ETIQUETAS.forEach(function (etiqueta) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip';
-        chip.dataset.etiqueta = etiqueta;
-        chip.textContent = etiqueta;
-        chip.addEventListener('click', function () {
-          etiquetaSeleccionada = etiqueta;
-          document.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('activo'); });
-          chip.classList.add('activo');
-        });
-        cont.appendChild(chip);
+        const opt = document.createElement('option');
+        opt.value = etiqueta; opt.textContent = etiqueta;
+        sel.appendChild(opt);
       });
+      sel.value = ETIQUETA_DEFECTO;
     }
 
     // ---------- Modo código / invitado ----------
@@ -373,11 +353,6 @@
       const mensaje = document.getElementById('mensaje-registro');
       mensaje.textContent = '';
 
-      if (!etiquetaSeleccionada) {
-        mensaje.className = 'mensaje error';
-        mensaje.textContent = 'Elige una etiqueta.';
-        return;
-      }
       if (!descripcion) {
         mensaje.className = 'mensaje error';
         mensaje.textContent = 'Escribe una descripción.';
@@ -387,7 +362,7 @@
       const datos = {
         codigo: modoInvitado ? '' : identidad.codigo,
         nombreInvitado: modoInvitado ? document.getElementById('input-nombre-invitado').value.trim() : '',
-        etiqueta: etiquetaSeleccionada,
+        etiqueta: document.getElementById('select-etiqueta').value || ETIQUETA_DEFECTO,
         descripcion: descripcion
       };
 
@@ -397,11 +372,16 @@
       google.script.run
         .withSuccessHandler(function () {
           btnGuardar.disabled = false;
+          // Limpia la pantalla para el siguiente registro
+          inputCodigo.value = '';
+          document.getElementById('input-nombre-invitado').value = '';
+          document.getElementById('input-descripcion').value = '';
+          document.getElementById('select-etiqueta').value = ETIQUETA_DEFECTO;
+          identidad = { codigo: '', nombre: '' };
+          estadoIdentidad.style.display = 'none';
+          actualizarHabilitacion();
           mensaje.className = 'mensaje ok';
           mensaje.textContent = '✅ Registro guardado.';
-          document.getElementById('input-descripcion').value = '';
-          etiquetaSeleccionada = null;
-          document.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('activo'); });
         })
         .withFailureHandler(function (err) {
           btnGuardar.disabled = false;
@@ -413,13 +393,13 @@
 
     // ---------- Revisar / listar / borrar ----------
     document.getElementById('input-codigo-revisar').addEventListener('input', function (e) {
-      identidad.codigo = e.target.value.trim();
       renderListaCache();
     });
     document.getElementById('btn-refrescar').addEventListener('click', cargarRegistros);
     document.getElementById('select-filtro').addEventListener('change', cargarRegistros);
 
     let cacheRegistros = [];
+    let idAbierto = null;
 
     function cargarRegistros() {
       const filtro = document.getElementById('select-filtro').value;
@@ -443,36 +423,59 @@
         lista.innerHTML = '<div class="vacio">No hay registros en los últimos 30 días.</div>';
         return;
       }
-      const codigoActual = document.getElementById('input-codigo-revisar').value.trim();
       const unaHoraMs = 60 * 60 * 1000;
 
       cacheRegistros.forEach(function (r) {
-        const puedeBorrar = codigoActual && r.codigo && r.codigo === codigoActual &&
-          (Date.now() - r.timestamp) <= unaHoraMs;
-
         const div = document.createElement('div');
-        div.className = 'card';
+        div.className = 'card clic';
         div.innerHTML =
           '<div class="registro-cabecera">' +
             '<strong>' + escaparHtml(r.usuario) + '</strong>' +
-            '<span class="badge ' + r.etiqueta + '">' + r.etiqueta + '</span>' +
+            '<span class="badge ' + escaparHtml(r.etiqueta) + '">' + escaparHtml(r.etiqueta) + '</span>' +
           '</div>' +
           '<div class="registro-desc">' + escaparHtml(r.descripcion) + '</div>' +
-          '<div class="registro-meta">' + r.timestampTexto + '</div>' +
-          (puedeBorrar ? '<button class="btn-borrar" data-id="' + r.id + '">🗑 Eliminar</button>' : '');
-        lista.appendChild(div);
-      });
+          '<div class="registro-meta">' + r.timestampTexto + '</div>';
 
-      document.querySelectorAll('.btn-borrar').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          if (!confirm('¿Borrar este registro?')) return;
-          const id = btn.dataset.id;
-          const codigo = document.getElementById('input-codigo-revisar').value.trim();
-          google.script.run
-            .withSuccessHandler(cargarRegistros)
-            .withFailureHandler(function (err) { alert('❌ ' + err.message); })
-            .borrarRegistro(id, codigo);
+        const detalle = document.createElement('div');
+        detalle.className = 'detalle-borrar';
+        detalle.style.display = r.id === idAbierto ? 'block' : 'none';
+        div.appendChild(detalle);
+
+        function pintarDetalle() {
+          const codigo = document.getElementById('input-codigo-revisar').value.trim().toLowerCase();
+          detalle.innerHTML = '';
+          if (!r.codigo) {
+            detalle.textContent = 'Registro de invitado: no se puede descartar.';
+          } else if (!codigo) {
+            detalle.textContent = 'Ingresa tu código arriba para poder descartar este registro.';
+          } else if (String(r.codigo).toLowerCase() !== codigo) {
+            detalle.textContent = 'Este registro no corresponde a tu código.';
+          } else if (Date.now() - r.timestamp > unaHoraMs) {
+            detalle.textContent = 'Ya pasó más de 1 hora desde que se cargó, no se puede descartar.';
+          } else {
+            const btn = document.createElement('button');
+            btn.className = 'btn-borrar';
+            btn.textContent = '🗑 Descartar este registro';
+            btn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              if (!confirm('¿Descartar este registro?')) return;
+              google.script.run
+                .withSuccessHandler(function () { idAbierto = null; cargarRegistros(); })
+                .withFailureHandler(function (err) { alert('❌ ' + err.message); })
+                .borrarRegistro(r.id, document.getElementById('input-codigo-revisar').value.trim());
+            });
+            detalle.appendChild(btn);
+          }
+        }
+        pintarDetalle();
+
+        div.addEventListener('click', function () {
+          const abrir = detalle.style.display === 'none';
+          idAbierto = abrir ? r.id : null;
+          pintarDetalle();
+          detalle.style.display = abrir ? 'block' : 'none';
         });
+        lista.appendChild(div);
       });
     }
 
