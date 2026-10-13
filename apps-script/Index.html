@@ -154,17 +154,6 @@
       padding: 0;
     }
 
-    #overlay-qr {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85);
-      z-index: 50;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    #overlay-qr.activo { display: flex; }
     #qr-reader { width: 100%; max-width: 360px; background: white; border-radius: 8px; overflow: hidden; }
 
     .mensaje { font-size: 13px; margin-top: 8px; }
@@ -185,7 +174,7 @@
   <!-- ===== PANEL REGISTRAR ===== -->
   <div class="panel activo" id="panel-registrar">
     <div class="card">
-      <label>¿Quién sos?</label>
+      <label>¿Quién eres?</label>
       <div class="switch">
         <button id="btn-modo-codigo" class="activo">Tengo código</button>
         <button id="btn-modo-invitado">Soy invitado</button>
@@ -194,7 +183,7 @@
       <div id="bloque-codigo">
         <label for="input-codigo">Código</label>
         <div class="fila">
-          <input type="text" id="input-codigo" placeholder="Ingresá tu código">
+          <input type="text" id="input-codigo" placeholder="Ingresa tu código">
           <button class="btn secundario" id="btn-escanear">📷 Escanear</button>
         </div>
         <div id="estado-identidad" class="estado-identidad" style="display:none;"></div>
@@ -211,7 +200,7 @@
       <div class="chips" id="chips-etiquetas"></div>
 
       <label for="input-descripcion">Descripción</label>
-      <textarea id="input-descripcion" placeholder="Contá qué pasó..."></textarea>
+      <textarea id="input-descripcion" placeholder="Ingresa breve comentario"></textarea>
 
       <button class="btn grande" id="btn-guardar">Guardar registro</button>
       <div id="mensaje-registro" class="mensaje"></div>
@@ -234,18 +223,15 @@
     <div id="lista-registros"></div>
   </div>
 
-  <!-- ===== OVERLAY ESCÁNER ===== -->
-  <div id="overlay-qr">
-    <div id="qr-reader"></div>
-    <button class="btn secundario" style="margin-top:16px;" id="btn-cerrar-qr">Cancelar</button>
-  </div>
+  <!-- ===== ESCÁNER QR (foto con la cámara del dispositivo) ===== -->
+  <input type="file" id="input-foto-qr" accept="image/*" capture="environment" style="display:none;">
+  <div id="qr-reader" style="display:none;"></div>
 
   <script>
     let ETIQUETAS = [];
     let etiquetaSeleccionada = null;
     let modoInvitado = false;
     let identidad = { codigo: '', nombre: '' };
-    let html5QrCode = null;
 
     // ---------- Tabs ----------
     document.querySelectorAll('.tab-btn').forEach(function (btn) {
@@ -337,9 +323,13 @@
         } else {
           identidad = { codigo: '', nombre: '' };
           estadoIdentidad.className = 'estado-identidad error';
-          estadoIdentidad.textContent = '❌ Código no reconocido. Podés reintentar o pasar a "Soy invitado".';
+          estadoIdentidad.textContent = '❌ Código no reconocido. Puedes reintentar o pasar a "Soy invitado".';
         }
         actualizarHabilitacion();
+      }).withFailureHandler(function (err) {
+        estadoIdentidad.style.display = 'block';
+        estadoIdentidad.className = 'estado-identidad error';
+        estadoIdentidad.textContent = '❌ Error: ' + err.message;
       }).validarCodigo(codigo);
     }
 
@@ -355,32 +345,27 @@
     }
 
     // ---------- Escáner QR ----------
-    const overlayQr = document.getElementById('overlay-qr');
+    // Apps Script abre la app en un iframe sin permiso de cámara en vivo, así que se usa
+    // la cámara nativa del dispositivo: se toma una foto del QR y se decodifica.
+    const inputFoto = document.getElementById('input-foto-qr');
     document.getElementById('btn-escanear').addEventListener('click', function () {
-      overlayQr.classList.add('activo');
-      html5QrCode = new Html5Qrcode('qr-reader');
-      html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: 220 },
-        function (textoDecodificado) {
-          inputCodigo.value = textoDecodificado;
-          cerrarEscaner();
-          validarCodigoActual();
-        }
-      ).catch(function (err) {
-        cerrarEscaner();
-        alert('No se pudo abrir la cámara: ' + err);
-      });
+      inputFoto.value = '';
+      inputFoto.click();
     });
-
-    function cerrarEscaner() {
-      overlayQr.classList.remove('activo');
-      if (html5QrCode) {
-        html5QrCode.stop().catch(function () {});
-        html5QrCode = null;
-      }
-    }
-    document.getElementById('btn-cerrar-qr').addEventListener('click', cerrarEscaner);
+    inputFoto.addEventListener('change', function () {
+      const archivo = inputFoto.files && inputFoto.files[0];
+      if (!archivo) return;
+      const lector = new Html5Qrcode('qr-reader');
+      lector.scanFile(archivo, false)
+        .then(function (texto) {
+          inputCodigo.value = texto.trim();
+          validarCodigoActual();
+        })
+        .catch(function () {
+          alert('No se pudo leer el QR. Intenta de nuevo con la imagen más cerca y bien enfocada, o escribe el código a mano.');
+        })
+        .then(function () { try { lector.clear(); } catch (e) {} });
+    });
 
     // ---------- Guardar registro ----------
     document.getElementById('btn-guardar').addEventListener('click', function () {
@@ -390,12 +375,12 @@
 
       if (!etiquetaSeleccionada) {
         mensaje.className = 'mensaje error';
-        mensaje.textContent = 'Elegí una etiqueta.';
+        mensaje.textContent = 'Elige una etiqueta.';
         return;
       }
       if (!descripcion) {
         mensaje.className = 'mensaje error';
-        mensaje.textContent = 'Escribí una descripción.';
+        mensaje.textContent = 'Escribe una descripción.';
         return;
       }
 

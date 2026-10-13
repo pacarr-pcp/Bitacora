@@ -6,7 +6,7 @@
  *
  * Hojas esperadas en el spreadsheet:
  *
- *  "Usuarios"  → Nombre | Código | Activo | Encargado | Correo
+ *  Usuarios (primera hoja, cualquiera sea su nombre) → Nombre | Código | Activo | Encargado | Correo
  *    - Activo:    checkbox. Vacío o TRUE = activo. Solo FALSE explícito lo desactiva.
  *    - Encargado: checkbox. Solo las filas en TRUE reciben alertas de "Importante".
  *    - Correo:    email del encargado (solo se usa si Encargado = TRUE).
@@ -33,9 +33,19 @@ function obtenerEtiquetas() {
   return ETIQUETAS;
 }
 
+// Libro "Bitacora". Se usa por ID por si el script no está vinculado al libro.
+const ID_LIBRO = '1n95G24oj5YDXh8A2hj_Y-MgQi-D-y_kaCPhjnTCIi_0';
+
+function getLibro_() {
+  return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(ID_LIBRO);
+}
+
 function getSheet_(nombre) {
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre);
-  if (!hoja) throw new Error('No existe la hoja "' + nombre + '". Revisá el nombre exacto de la pestaña.');
+  const libro = getLibro_();
+  // Los usuarios están siempre en la primera hoja, sin importar cómo se llame la pestaña.
+  if (nombre === HOJA_USUARIOS) return libro.getSheets()[0];
+  const hoja = libro.getSheetByName(nombre);
+  if (!hoja) throw new Error('No existe la hoja "' + nombre + '". Revisa el nombre exacto de la pestaña.');
   return hoja;
 }
 
@@ -45,7 +55,7 @@ function buscarUsuario_(codigo) {
   for (let i = 1; i < datos.length; i++) {
     const [nombre, cod, activo] = datos[i];
     if (!cod) continue;
-    if (String(cod).trim() === String(codigo).trim()) {
+    if (String(cod).trim().toLowerCase() === String(codigo).trim().toLowerCase()) {
       if (activo === false) return null;
       return { nombre: String(nombre).trim(), codigo: String(cod).trim() };
     }
@@ -100,7 +110,7 @@ function registrarLog(data) {
     usuario = encontrado.nombre;
     codigoFinal = encontrado.codigo;
   } else {
-    if (!nombreInvitado) throw new Error('Ingresá tu nombre.');
+    if (!nombreInvitado) throw new Error('Ingresa tu nombre.');
     usuario = nombreInvitado;
     codigoFinal = '';
   }

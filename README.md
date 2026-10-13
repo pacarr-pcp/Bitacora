@@ -16,7 +16,7 @@ servidores ni costos.
 
 ## Estructura del Google Sheet
 
-Creá (o reutilizá) un Sheet con estas dos pestañas exactas:
+Crea (o reutiliza) un Sheet con estas dos pestañas exactas:
 
 ### Pestaña `Usuarios`
 
@@ -25,11 +25,11 @@ Creá (o reutilizá) un Sheet con estas dos pestañas exactas:
 | Juan Pérez | 1234 | ☑ | ☐ | |
 | María Gómez | 5678 | ☑ | ☑ | maria@empresa.com |
 
-- **Activo**: checkbox. Vacío o tildado = activo. Solo destildado (`FALSE`)
+- **Activo**: checkbox. Vacío o marcado = activo. Solo desmarcado (`FALSE`)
   desactiva el código.
-- **Encargado**: checkbox. Las filas tildadas reciben el email cuando se carga
+- **Encargado**: checkbox. Las filas marcadas reciben el email cuando se carga
   un registro con etiqueta `Importante`.
-- **Correo**: solo se usa si `Encargado` está tildado.
+- **Correo**: solo se usa si `Encargado` está marcado.
 
 ### Pestaña `Registros`
 
@@ -41,17 +41,17 @@ mano ahí, alcanza con crearla vacía con esos encabezados.
 
 ## Instalación
 
-1. Abrí tu Google Sheet → **Extensiones → Apps Script**.
-2. Se abre un editor con un archivo `Código.gs` por defecto. Borrá su
-   contenido y pegá el de [`apps-script/Code.gs`](apps-script/Code.gs) de este
+1. Abre tu Google Sheet → **Extensiones → Apps Script**.
+2. Se abre un editor con un archivo `Código.gs` por defecto. Borra su
+   contenido y pega el de [`apps-script/Code.gs`](apps-script/Code.gs) de este
    repo.
-3. Creá un archivo HTML nuevo (ícono `+` → HTML) llamado exactamente `Index`.
-   Pegá el contenido de [`apps-script/Index.html`](apps-script/Index.html).
-4. Abrí el archivo de manifiesto (ícono de engranaje → tildar "Mostrar archivo
-   de manifiesto") y reemplazá `appsscript.json` por el contenido de
+3. Crea un archivo HTML nuevo (ícono `+` → HTML) llamado exactamente `Index`.
+   Pega el contenido de [`apps-script/Index.html`](apps-script/Index.html).
+4. Abre el archivo de manifiesto (ícono de engranaje → marcar "Mostrar archivo
+   de manifiesto") y reemplaza `appsscript.json` por el contenido de
    [`apps-script/appsscript.json`](apps-script/appsscript.json). Si tu zona
-   horaria no es Argentina, ajustá el campo `timeZone`.
-5. Guardá todo (Ctrl+S / ⌘+S).
+   horaria no es Chile, ajusta el campo `timeZone`.
+5. Guarda todo (Ctrl+S / ⌘+S).
 
 ## Desplegar como Web App
 
@@ -61,11 +61,11 @@ mano ahí, alcanza con crearla vacía con esos encabezados.
 4. "Quién tiene acceso": **Cualquier usuario** (así entra cualquiera con el
    link, sin necesitar cuenta de Google — la identificación la maneja el
    código interno, no el login de Google).
-5. Implementar → copiá la URL que te da. Esa es la URL de la bitácora.
-6. Generá un QR apuntando a esa URL (con cualquier generador gratuito online)
-   y ponelo donde te convenga — es un único módulo para todo el equipo.
+5. Implementar → copia la URL que te da. Esa es la URL de la bitácora.
+6. Genera un QR apuntando a esa URL (con cualquier generador gratuito online)
+   y ponlo donde te convenga — es un único módulo para todo el equipo.
 
-Cada vez que edites el código en el editor de Apps Script, tenés que hacer
+Cada vez que edites el código en el editor de Apps Script, tienes que hacer
 **Implementar → Gestionar implementaciones → editar (lápiz) → Nueva versión**
 para que los cambios se reflejen en la URL ya publicada.
 
@@ -75,7 +75,7 @@ para que los cambios se reflejen en la URL ya publicada.
   invitado con nombre, elegir una etiqueta (`Asistencia`, `Importante`,
   `Anonimo`, `Seguridad`, `Terreno`) y escribir la descripción.
 - **Revisar**: bitácora compartida, muestra los últimos 30 días con filtro por
-  etiqueta. Si ponés tu código ahí también, vas a poder borrar tus propios
+  etiqueta. Si pones tu código ahí también, podrás borrar tus propios
   registros durante la primera hora después de cargados.
 
 ## Limitaciones conocidas (a propósito, por simplicidad)
