@@ -84,7 +84,7 @@ String pedir(const String& accion) {
   if (http.begin(cliente, String(WEBAPP_URL) + "?accion=" + accion)) {
     int codigo = http.GET();
     if (codigo == 200) respuesta = http.getString();
-    else Serial.printf("HTTP %d\n", codigo);
+    else Serial.printf("HTTP %d (%s), memoria libre: %u\n", codigo, http.errorToString(codigo).c_str(), ESP.getFreeHeap());
     http.end();
   }
   respuesta.trim();
