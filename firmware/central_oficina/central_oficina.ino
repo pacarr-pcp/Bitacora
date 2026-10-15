@@ -5,6 +5,8 @@
 //   - suena el buzzer durante 3 s
 //   - las matrices muestran "PORTERIA" hasta que se presione el pulsador
 // Al presionar el pulsador avisa a la app que la llamada fue atendida.
+// En reposo muestra la hora de Chile (HH:MM, con los dos puntos parpadeando), tomada
+// de internet por NTP.
 //
 // Conexiones:
 //   Matrices MAX7219 (4 en cadena): DIN -> D7, CLK -> D5, CS -> D4, VCC -> VIN, GND -> GND
@@ -17,6 +19,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <time.h>
+#include <TZ.h>
 #include <SPI.h>
 #include <MD_Parola.h>
 #include <MD_MAX72xx.h>
@@ -46,6 +50,10 @@ String idActual = "";          // llamada que está sonando
 String ultimoIdAtendido = "";  // para no volver a sonar por la misma llamada
 unsigned long ultimaConsulta = 0;
 unsigned long finPitido = 0;
+
+// --- Reloj ---
+char textoHora[8] = "--:--";
+int segundoMostrado = -1;   // -1 fuerza redibujar la hora
 
 // ---------------------------------------------------------------------------
 // Red
@@ -89,6 +97,28 @@ void avisarAtendida(const String& id) {
 }
 
 // ---------------------------------------------------------------------------
+// Reloj
+// ---------------------------------------------------------------------------
+
+// Dibuja la hora una vez por segundo. Muestra "--:--" mientras no esté sincronizada.
+void mostrarHora() {
+  time_t ahora = time(nullptr);
+  bool sincronizada = ahora > 1700000000;           // antes de sincronizar es ~1970
+  struct tm* t = localtime(&ahora);
+  int segundo = sincronizada ? t->tm_sec : 0;
+  if (segundo == segundoMostrado) return;
+  segundoMostrado = segundo;
+
+  if (sincronizada) {
+    snprintf(textoHora, sizeof(textoHora), "%02d%c%02d", t->tm_hour, (segundo % 2 == 0) ? ':' : ' ', t->tm_min);
+  } else {
+    strcpy(textoHora, "--:--");
+  }
+  pantalla.displayText(textoHora, PA_CENTER, 25, 0, PA_PRINT, PA_NO_EFFECT);
+  pantalla.displayAnimate();
+}
+
+// ---------------------------------------------------------------------------
 // Alarma
 // ---------------------------------------------------------------------------
 
@@ -105,6 +135,7 @@ void iniciarAlarma(const String& id) {
 void detenerAlarma() {
   digitalWrite(PIN_BUZZER, LOW);
   pantalla.displayClear();
+  segundoMostrado = -1;   // redibuja la hora de inmediato
   estado = REPOSO;
   ultimoIdAtendido = idActual;
   Serial.println("Alarma detenida");
@@ -129,12 +160,14 @@ void setup() {
   pantalla.setIntensity(BRILLO);
   pantalla.displayClear();
 
+  configTime(TZ_America_Santiago, "pool.ntp.org", "time.google.com");  // hora de Chile, con cambio de horario
   conectarWifi();
   ultimaConsulta = millis() - INTERVALO_CONSULTA_MS;  // consulta de inmediato al partir
 }
 
 void loop() {
   if (estado == REPOSO) {
+    mostrarHora();
     if (millis() - ultimaConsulta >= INTERVALO_CONSULTA_MS) {
       ultimaConsulta = millis();
       if (WiFi.status() != WL_CONNECTED) {
