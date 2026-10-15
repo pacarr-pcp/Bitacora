@@ -23,7 +23,10 @@ const ETIQUETA_ALERTA = 'Importante';
 const VENTANA_BORRADO_MS = 60 * 60 * 1000; // 1 hora
 const DIAS_HISTORIAL = 30;
 
-function doGet() {
+function doGet(e) {
+  const accion = e && e.parameter && e.parameter.accion;
+  if (accion === 'estado') return texto_(estadoParaPlaca_());
+  if (accion === 'atender') return texto_(atenderLlamada_(e.parameter.id));
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Log SIMET')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -185,4 +188,73 @@ function borrarRegistro(id, codigo) {
     return { ok: true };
   }
   throw new Error('Registro no encontrado (puede que ya lo hayan borrado).');
+}
+
+
+// ---------------------------------------------------------------------------
+// Llamada desde portería (aviso físico en la oficina)
+//
+//  - La app (botón "Portería") llama a llamarPorteria().
+//  - La placa de la oficina consulta ?accion=estado cada 30 s y responde
+//    "SI:<id>" si hay una llamada pendiente o "NO" si no.
+//  - Al presionar el pulsador, la placa avisa con ?accion=atender&id=<id>.
+// ---------------------------------------------------------------------------
+
+const PROP_LLAMADA = 'llamada';
+const EXPIRA_LLAMADA_MS = 5 * 60 * 1000; // sin atender, la llamada caduca a los 5 min
+
+function texto_(t) {
+  return ContentService.createTextOutput(t).setMimeType(ContentService.MimeType.TEXT);
+}
+
+function leerLlamada_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(PROP_LLAMADA);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function llamadaVigente_(ll) {
+  return !!ll && !ll.atendida && (Date.now() - ll.ts) < EXPIRA_LLAMADA_MS;
+}
+
+/** Llamada desde el cliente: registra una llamada pendiente (si ya hay una vigente, no crea otra). */
+function llamarPorteria() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const actual = leerLlamada_();
+    if (llamadaVigente_(actual)) return { id: actual.id, yaActiva: true };
+    const nueva = { id: String(Date.now()), ts: Date.now(), atendida: false };
+    PropertiesService.getScriptProperties().setProperty(PROP_LLAMADA, JSON.stringify(nueva));
+    return { id: nueva.id, yaActiva: false };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Llamada desde el cliente: para mostrarle al guardia si ya atendieron su llamada. */
+function estadoLlamada(id) {
+  const ll = leerLlamada_();
+  if (!ll || ll.id !== id) return { estado: 'desconocida' };
+  if (ll.atendida) return { estado: 'atendida' };
+  return { estado: llamadaVigente_(ll) ? 'pendiente' : 'expirada' };
+}
+
+function estadoParaPlaca_() {
+  const ll = leerLlamada_();
+  return llamadaVigente_(ll) ? 'SI:' + ll.id : 'NO';
+}
+
+function atenderLlamada_(id) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const ll = leerLlamada_();
+    if (ll && String(ll.id) === String(id)) {
+      ll.atendida = true;
+      PropertiesService.getScriptProperties().setProperty(PROP_LLAMADA, JSON.stringify(ll));
+    }
+    return 'OK';
+  } finally {
+    lock.releaseLock();
+  }
 }

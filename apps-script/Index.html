@@ -31,6 +31,12 @@
       font-size: 20px;
       font-weight: 600;
     }
+    .porteria { background: white; padding: 12px 16px; border-bottom: 1px solid var(--borde); text-align: center; }
+    .btn-porteria {
+      width: 100%; max-width: 420px; padding: 16px; font-size: 20px; font-weight: 700;
+      color: white; background: var(--naranja); border: none; border-radius: 10px; cursor: pointer;
+    }
+    .btn-porteria:disabled { opacity: 0.6; cursor: default; }
     .tabs {
       display: flex;
       background: white;
@@ -153,6 +159,11 @@
 
   <header>📋 Log SIMET</header>
 
+  <div class="porteria">
+    <button class="btn-porteria" id="btn-porteria">🔔 Portería</button>
+    <div id="mensaje-porteria" class="mensaje"></div>
+  </div>
+
   <div class="tabs">
     <button class="tab-btn activo" data-tab="registrar">Registrar</button>
     <button class="tab-btn" data-tab="revisar">Revisar</button>
@@ -219,6 +230,51 @@
     const ETIQUETA_DEFECTO = 'Aviso';
     let modoInvitado = false;
     let identidad = { codigo: '', nombre: '' };
+
+    // ---------- Llamada de portería ----------
+    let timerPorteria = null;
+    const btnPorteria = document.getElementById('btn-porteria');
+    const mensajePorteria = document.getElementById('mensaje-porteria');
+
+    function mostrarPorteria(texto, tipo) {
+      mensajePorteria.className = 'mensaje ' + (tipo || '');
+      mensajePorteria.textContent = texto;
+    }
+
+    function esperarAtencion(id) {
+      clearInterval(timerPorteria);
+      let intentos = 0;
+      timerPorteria = setInterval(function () {
+        intentos++;
+        if (intentos > 60) { clearInterval(timerPorteria); btnPorteria.disabled = false; return; }
+        google.script.run.withSuccessHandler(function (r) {
+          if (r.estado === 'atendida') {
+            clearInterval(timerPorteria);
+            btnPorteria.disabled = false;
+            mostrarPorteria('✅ Llamada atendida.', 'ok');
+          } else if (r.estado !== 'pendiente') {
+            clearInterval(timerPorteria);
+            btnPorteria.disabled = false;
+            mostrarPorteria('Nadie respondió. Puedes intentar de nuevo.', 'error');
+          }
+        }).estadoLlamada(id);
+      }, 6000);
+    }
+
+    btnPorteria.addEventListener('click', function () {
+      btnPorteria.disabled = true;
+      mostrarPorteria('Enviando llamada...', '');
+      google.script.run
+        .withSuccessHandler(function (r) {
+          mostrarPorteria(r.yaActiva ? 'Ya hay una llamada en curso. Esperando respuesta...' : '📣 Llamada enviada. Esperando respuesta...', 'ok');
+          esperarAtencion(r.id);
+        })
+        .withFailureHandler(function (err) {
+          btnPorteria.disabled = false;
+          mostrarPorteria('❌ ' + err.message, 'error');
+        })
+        .llamarPorteria();
+    });
 
     // ---------- Tabs ----------
     document.querySelectorAll('.tab-btn').forEach(function (btn) {
