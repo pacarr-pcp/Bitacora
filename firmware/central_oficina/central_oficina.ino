@@ -76,9 +76,9 @@ String pedir(const String& accion) {
   if (WiFi.status() != WL_CONNECTED) return "";
   WiFiClientSecure cliente;
   cliente.setInsecure();                       // sin validar el certificado (simple)
-  cliente.setBufferSizes(1024, 512);
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);  // Apps Script redirige
+  http.useHTTP10(true);                        // respuesta simple, sin trozos (más fiable con Google)
   http.setTimeout(10000);
   String respuesta = "";
   if (http.begin(cliente, String(WEBAPP_URL) + "?accion=" + accion)) {
